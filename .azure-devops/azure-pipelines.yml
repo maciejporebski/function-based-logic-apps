@@ -1,0 +1,66 @@
+---
+
+trigger: none
+
+stages: 
+  - stage: build
+    jobs:
+      - job: build_package
+        steps:
+          - task: DotNetCoreCLI@2
+            displayName: restore
+            inputs:
+              command: restore
+              projects: '**/*.csproj'
+          - task: DotNetCoreCLI@2
+            displayName: build
+            inputs:
+              projects: '**/*.csproj'
+              arguments: '--configuration Release'
+          - task: DotNetCoreCLI@2
+            displayName: publish
+            inputs:
+              command: publish
+              publishWebProjects: false
+              projects: '**/*.csproj'
+              arguments: '--configuration Release --output $(build.artifactstagingdirectory)'
+              zipAfterPublish: True
+          - task: CopyFiles@2
+            displayName: copy_infrastructure
+            inputs:
+              SourceFolder: infrastructure
+              TargetFolder: '$(build.artifactstagingdirectory)'
+          - task: PublishBuildArtifacts@1
+            displayName: publish_artifact
+            inputs:
+              PathtoPublish: '$(build.artifactstagingdirectory)'
+  - stage: deploy
+    variables:
+      logicAppName: 'logic-app-preview-la'
+      storageAccountName: 'logicapppreviewsto'
+      appServicePlanName: 'logic-app-preview-asp'
+      insightsName: 'logic-app-preview-ins'
+      location: 'northeurope'
+      resourceGroup: 'logic-apps-preview'
+    jobs:
+      - job: deploy_logic_app
+        steps:
+          - checkout: none
+          - download: current
+            artifact: drop
+          - task : AzureResourceManagerTemplateDeployment@3
+            displayName: deploy_arm
+            inputs:
+              azureResourceManagerConnection: $(serviceConnection)
+              resourceGroupName: '$(resourceGroup)'
+              location: '$(location)'
+              csmFile: '$(pipeline.workspace)/drop/arm-template.json'
+              overrideParameters: '-logicAppName $(logicAppName) -storageAccountName $(storageAccountName) -appServicePlanName $(appServicePlanName) -insightsName $(insightsName) -location $(location)'
+          - task: AzureRmWebAppDeployment@4
+            displayName: deploy_logic_app
+            inputs:
+              ConnectionType: 'AzureRM'
+              azureSubscription: $(serviceConnection)
+              appType: 'functionApp'
+              WebAppName: '$(logicAppName)'
+              packageForLinux: '$(pipeline.workspace)/drop/src.zip'

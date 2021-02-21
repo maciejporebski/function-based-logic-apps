@@ -1,0 +1,36 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "actions": {
+      "Current_time": {
+          "inputs": {},
+          "kind": "CurrentTime",
+          "runAfter": {},
+          "type": "Expression"
+      },
+      "Response": {
+          "inputs": {
+              "body": "@body('Current_time')",
+              "statusCode": 200
+          },
+          "kind": "http",
+          "runAfter": {
+              "Current_time": [
+                  "Succeeded"
+              ]
+          },
+          "type": "Response"
+      }
+  },
+    "contentVersion": "1.0.0.0",
+    "outputs": {},
+    "triggers": {
+      "manual": {
+          "inputs": {},
+          "kind": "Http",
+          "type": "Request"
+      }
+  }
+  },
+  "kind": "Stateless"
+}
